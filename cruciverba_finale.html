@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generatore di Cruciverba Didattici</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; min-height: 100vh; padding: 20px; color: #1a1a1a; }
+  .container { max-width: 980px; margin: 0 auto; }
+  .header { background: #fff; border-radius: 12px; padding: 24px 28px; margin-bottom: 16px; border: 1px solid #e0e0e0; }
+  .header h1 { font-size: 22px; font-weight: 600; color: #111; margin-bottom: 4px; }
+  .header p { font-size: 14px; color: #666; }
+  .card { background: #fff; border-radius: 12px; padding: 24px 28px; margin-bottom: 16px; border: 1px solid #e0e0e0; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tab-btn { padding: 9px 18px; font-size: 14px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #555; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .tab-btn.active { background: #111; color: #fff; border-color: #111; }
+  .tab-btn:hover:not(.active) { background: #f5f5f5; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; }
+  input[type="text"], select, textarea { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #111; font-family: inherit; outline: none; transition: border 0.15s; }
+  input[type="text"]:focus, select:focus, textarea:focus { border-color: #888; }
+  textarea { resize: vertical; min-height: 75px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .field { margin-bottom: 14px; }
+  .upload-zone { border: 1.5px dashed #ccc; border-radius: 10px; padding: 28px; text-align: center; cursor: pointer; transition: all 0.15s; background: #fafafa; margin-bottom: 14px; }
+  .upload-zone:hover { border-color: #888; background: #f5f5f5; }
+  .upload-zone.has-file { border-color: #1a7a4a; background: #f0faf5; }
+  .upload-zone .icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-zone p { font-size: 14px; color: #555; }
+  .upload-zone p.hint { font-size: 12px; color: #999; margin-top: 4px; }
+  .upload-zone.has-file p { color: #1a7a4a; }
+  #file-input { display: none; }
+  .generate-btn { width: 100%; padding: 13px; font-size: 15px; font-weight: 600; background: #111; border: none; border-radius: 8px; color: #fff; cursor: pointer; margin-top: 8px; transition: all 0.15s; font-family: inherit; }
+  .generate-btn:hover:not(:disabled) { background: #333; }
+  .generate-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .status { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; align-items: center; gap: 8px; }
+  .status.loading { display: flex; background: #f0f2f5; color: #555; }
+  .status.error { display: flex; background: #fff0f0; color: #b00; border: 1px solid #fcc; }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .crossword-section { display: none; }
+  .crossword-section.visible { display: block; }
+  .cw-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .cw-header h2 { font-size: 20px; font-weight: 600; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { padding: 8px 14px; font-size: 13px; border: 1px solid #ddd; border-radius: 7px; background: #fff; color: #333; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .btn:hover { background: #f5f5f5; }
+  .btn.dark { background: #111; color: #fff; border-color: #111; }
+  .btn.dark:hover { background: #333; }
+  .cw-layout { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 680px) { .cw-layout { grid-template-columns: 1fr; } .row { grid-template-columns: 1fr; } }
+  #cw-grid { display: inline-grid; gap: 2px; border: 2px solid #222; padding: 2px; background: #222; border-radius: 4px; overflow: auto; }
+  .cell { width: 30px; height: 30px; background: #fff; border-radius: 2px; position: relative; }
+  .cell.black { background: #1a1a1a; }
+  .cell input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; font-size: 14px; font-weight: 600; text-transform: uppercase; color: #111; cursor: pointer; padding: 0; font-family: inherit; outline: none; }
+  .cell input:focus { background: #d6eaff; }
+  .cell input.correct { background: #c8f0d0 !important; color: #1a6b2a; }
+  .cell input.wrong { background: #ffd0d0 !important; color: #a00; }
+  .cell-num { position: absolute; top: 1px; left: 2px; font-size: 7px; color: #777; line-height: 1; pointer-events: none; z-index: 1; }
+  .clues-panel { min-width: 0; }
+  .clues-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .clues-group h3 { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .clue-item { font-size: 12px; color: #555; padding: 5px 0; border-bottom: 1px solid #f0f0f0; line-height: 1.4; cursor: pointer; transition: color 0.1s; }
+  .clue-item:hover { color: #111; }
+  .clue-item b { color: #111; }
+  .verify-bar { margin-top: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .score { font-size: 13px; color: #555; padding: 7px 12px; background: #f5f5f5; border-radius: 7px; }
+  hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+  .export-box { background: #f8f9fa; border-radius: 10px; padding: 18px 20px; border: 1px solid #e8e8e8; }
+  .export-box h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .export-box p { font-size: 13px; color: #666; margin-bottom: 14px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>🔤 Generatore di Cruciverba Didattici</h1>
+    <p>Crea cruciverba da argomento libero o da un documento PDF</p>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('topic')" id="tab-topic">✏️ Argomento</button>
+      <button class="tab-btn" onclick="switchTab('pdf')" id="tab-pdf">📄 Da PDF</button>
+    </div>
+
+    <div class="panel active" id="panel-topic">
+      <div class="field">
+        <label>Argomento del cruciverba</label>
+        <input type="text" id="topic-input" placeholder="Es: Seconda Guerra Mondiale, Fotosintesi, Grammatica italiana..." />
+      </div>
+      <div class="row">
+        <div>
+          <label>Livello</label>
+          <select id="level-topic">
+            <option value="scuola media">Scuola media</option>
+            <option value="scuola superiore" selected>Scuola superiore</option>
+            <option value="università">Università / Higher Ed</option>
+            <option value="formazione professionale">Formazione professionale</option>
+          </select>
+        </div>
+        <div>
+          <label>Lingua</label>
+          <select id="lang-topic">
+            <option value="italiano" selected>Italiano</option>
+            <option value="inglese">Inglese</option>
+            <option value="francese">Francese</option>
+            <option value="spagnolo">Spagnolo</option>
+          </select>
+        </div>
+      </div>
+      <button class="generate-btn" id="btn-topic" onclick="generateFromTopic()">⚡ Genera Cruciverba</button>
+    </div>
+
+    <div class="panel" id="panel-pdf">
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">📁</div>
+        <p id="upload-text">Clicca per caricare un PDF</p>
+        <p class="hint">Oppure trascina il file qui · Max 10MB · Solo PDF con testo selezionabile</p>
+      </div>
+      <input type="file" id="file-input" accept=".pdf" onchange="handleFile(event)" />
+      <div class="field">
+        <label>Note per la generazione (opzionale)</label>
+        <textarea id="pdf-notes" placeholder="Es: Concentrati sui termini del capitolo 2, ignora le appendici..."></textarea>
+      </div>
+      <div class="row">
+        <div>
+          <label>Livello</label>
+          <select id="level-pdf">
+            <option value="scuola media">Scuola media</option>
+            <option value="scuola superiore" selected>Scuola superiore</option>
+            <option value="università">Università / Higher Ed</option>
+            <option value="formazione professionale">Formazione professionale</option>
+          </select>
+        </div>
+        <div>
+          <label>Lingua cruciverba</label>
+          <select id="lang-pdf">
+            <option value="italiano" selected>Italiano</option>
+            <option value="inglese">Inglese</option>
+            <option value="francese">Francese</option>
+            <option value="spagnolo">Spagnolo</option>
+          </select>
+        </div>
+      </div>
+      <button class="generate-btn" id="btn-pdf" onclick="generateFromPDF()">⚡ Genera dal PDF</button>
+    </div>
+
+    <div class="status" id="status">
+      <span class="spin">⟳</span>
+      <span id="status-text">Generazione in corso...</span>
+    </div>
+  </div>
+
+  <div class="card crossword-section" id="crossword-section">
+    <div class="cw-header">
+      <h2 id="cw-title">Cruciverba</h2>
+      <div class="btn-group">
+        <button class="btn" onclick="resetGrid()">↺ Reset</button>
+        <button class="btn dark" onclick="exportStudent()">⬇ Scarica HTML studente</button>
+      </div>
+    </div>
+
+    <div class="cw-layout">
+      <div style="overflow:auto;">
+        <div id="cw-grid"></div>
+      </div>
+      <div class="clues-panel">
+        <div class="clues-grid">
+          <div class="clues-group">
+            <h3>→ Orizzontali</h3>
+            <div id="clues-across"></div>
+          </div>
+          <div class="clues-group">
+            <h3>↓ Verticali</h3>
+            <div id="clues-down"></div>
+          </div>
+        </div>
+        <div class="verify-bar">
+          <button class="btn" onclick="verify()">✓ Verifica risposte</button>
+          <button class="btn" onclick="showSolution()">👁 Soluzione</button>
+          <span class="score" id="score" style="display:none;"></span>
+        </div>
+      </div>
+    </div>
+
+    <hr />
+
+    <div class="export-box">
+      <h3>🌐 Pubblica per gli studenti</h3>
+      <p>Scarica il file HTML, caricalo su GitHub Pages e incolla il link su Moodle. Lo studente clicca e gioca direttamente nel browser — nessuna installazione, nessun login.</p>
+      <div class="btn-group">
+        <button class="btn dark" onclick="exportStudent()">⬇ Scarica HTML</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API_KEY = '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';
+let currentCW = null;
+let pdfBase64 = null;
+let pdfName = '';
+
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); });
+uploadZone.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) processFile(f); });
+
+function switchTab(t) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + t).classList.add('active');
+  document.getElementById('panel-' + t).classList.add('active');
+}
+
+function handleFile(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
+
+function processFile(file) {
+  if (file.size > 10 * 1024 * 1024) { showError('File troppo grande. Massimo 10MB.'); return; }
+  pdfName = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pdfBase64 = ev.target.result.split(',')[1];
+    const z = document.getElementById('upload-zone');
+    z.classList.add('has-file');
+    z.innerHTML = `<div class="icon">✅</div><p>${file.name}</p><p class="hint">${(file.size/1024).toFixed(0)} KB · Clicca per cambiare file</p>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function showStatus(msg) {
+  const s = document.getElementById('status');
+  s.className = 'status loading';
+  document.getElementById('status-text').textContent = msg;
+}
+
+function showError(msg) {
+  const s = document.getElementById('status');
+  s.className = 'status error';
+  s.innerHTML = '⚠️ ' + msg;
+}
+
+function hideStatus() { document.getElementById('status').className = 'status'; }
+
+async function callAPI(messages) {
+  const res = await fetch('https://cruciverba-proxy.pietro-dipalo.workers.dev', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, messages })
+  });
+  if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'Errore API ' + res.status); }
+  const d = await res.json();
+  return d.content.filter(c => c.type === 'text').map(c => c.text).join('');
+}
+
+async function generateFromTopic() {
+  const topic = document.getElementById('topic-input').value.trim();
+  if (!topic) { showError('Inserisci un argomento.'); return; }
+  const level = document.getElementById('level-topic').value;
+  const lang = document.getElementById('lang-topic').value;
+  document.getElementById('btn-topic').disabled = true;
+  showStatus('Generazione parole e definizioni in corso...');
+  try {
+    const prompt = `Sei un esperto creatore di cruciverba didattici. Crea esattamente 24 coppie parola/definizione in ${lang} sull'argomento: "${topic}" per studenti di livello ${level}.
+
+REGOLE ASSOLUTE:
+- Le parole devono essere composte SOLO da lettere dell'alfabeto (A-Z, possono includere lettere accentate italiane come ÀÈÌÒÙ)
+- VIETATO: spazi, apostrofi, trattini, numeri, caratteri speciali
+- Lunghezza parola: minimo 4 lettere, massimo 14 lettere
+- Tutte le parole devono essere diverse tra loro
+- Le definizioni devono essere chiare, concise (massimo 10 parole), appropriate al livello scelto
+- Tutte le parole devono essere strettamente pertinenti all'argomento
+
+Rispondi ESCLUSIVAMENTE con un array JSON valido, nessun testo prima o dopo:
+[{"word":"PAROLA","clue":"definizione concisa"},...]`;
+    const raw = await callAPI([{ role: 'user', content: prompt }]);
+    processWords(raw, topic);
+  } catch(e) { showError(e.message); }
+  document.getElementById('btn-topic').disabled = false;
+}
+
+async function generateFromPDF() {
+  if (!pdfBase64) { showError('Carica prima un file PDF.'); return; }
+  const notes = document.getElementById('pdf-notes').value.trim();
+  const level = document.getElementById('level-pdf').value;
+  const lang = document.getElementById('lang-pdf').value;
+  document.getElementById('btn-pdf').disabled = true;
+  showStatus('Analisi del PDF in corso...');
+  try {
+    const content = [
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+      { type: 'text', text: `Analizza questo documento e crea esattamente 24 coppie parola/definizione in ${lang} per studenti di livello ${level}.${notes ? '\nNote del docente: ' + notes : ''}
+
+REGOLE ASSOLUTE:
+- Estrai i concetti chiave e termini tecnici dal documento
+- Le parole devono essere composte SOLO da lettere (A-Z, lettere accentate italiane consentite)
+- VIETATO: spazi, apostrofi, trattini, numeri, caratteri speciali nelle parole
+- Lunghezza parola: minimo 4 lettere, massimo 14 lettere
+- Tutte le parole devono essere diverse tra loro e presenti nel documento
+- Le definizioni devono essere basate sul contenuto del documento, concise (max 10 parole)
+
+Rispondi ESCLUSIVAMENTE con un array JSON valido, nessun testo prima o dopo:
+[{"word":"PAROLA","clue":"definizione concisa"},...]` }
+    ];
+    const raw = await callAPI([{ role: 'user', content: content }]);
+    processWords(raw, pdfName.replace('.pdf', ''));
+  } catch(e) { showError(e.message); }
+  document.getElementById('btn-pdf').disabled = false;
+}
+
+function processWords(raw, title) {
+  showStatus('Costruzione della griglia...');
+  try {
+    let clean = raw.replace(/```json|```/g, '').trim();
+    const match = clean.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('Formato risposta non valido. Riprova.');
+    const words = JSON.parse(match[0]);
+    if (!words.length) throw new Error('Nessuna parola generata.');
+    const cw = buildCrossword(words);
+    if (!cw || cw.placed.length < 8) { showError('Griglia insufficiente (' + (cw ? cw.placed.length : 0) + ' parole). Riprova — la generazione varia ogni volta.'); hideStatus(); return; }
+    currentCW = { cw, title };
+    renderCrossword(cw, title);
+    hideStatus();
+  } catch(e) { showError('Errore: ' + e.message); }
+}
+
+function buildCrossword(wordList) {
+  const clean = wordList
+    .map(w => ({ word: w.word.toUpperCase().replace(/[^A-ZÀÈÌÒÙÁÉÍÓÚ]/g, ''), clue: w.clue }))
+    .filter(w => w.word.length >= 4 && w.word.length <= 14)
+    .filter((w, i, a) => a.findIndex(x => x.word === w.word) === i);
+  clean.sort((a, b) => b.word.length - a.word.length);
+
+  const SIZE = 23;
+  const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+  const placed = [];
+
+  function canPlace(word, row, col, dir) {
+    const dr = dir === 'down' ? 1 : 0, dc = dir === 'across' ? 1 : 0;
+    if (dir === 'across' && col + word.length > SIZE) return false;
+    if (dir === 'down' && row + word.length > SIZE) return false;
+    if (col > 0 && dir === 'across' && grid[row][col - 1] !== null) return false;
+    if (col + word.length < SIZE && dir === 'across' && grid[row][col + word.length] !== null) return false;
+    if (row > 0 && dir === 'down' && grid[row - 1][col] !== null) return false;
+    if (row + word.length < SIZE && dir === 'down' && grid[row + word.length][col] !== null) return false;
+    let intersects = 0;
+    for (let i = 0; i < word.length; i++) {
+      const r = row + i * dr, c = col + i * dc;
+      const cell = grid[r][c];
+      if (cell !== null) {
+        if (cell !== word[i]) return false;
+        intersects++;
+      } else {
+        const ar = r + (dir === 'across' ? -1 : 0), ac = c + (dir === 'down' ? -1 : 0);
+        const br = r + (dir === 'across' ? 1 : 0), bc = c + (dir === 'down' ? 1 : 0);
+        if (ar >= 0 && ac >= 0 && grid[ar][ac] !== null) return false;
+        if (br < SIZE && bc < SIZE && grid[br][bc] !== null) return false;
+      }
+    }
+    return placed.length === 0 || intersects > 0;
+  }
+
+  function placeWord(word, row, col, dir) {
+    const dr = dir === 'down' ? 1 : 0, dc = dir === 'across' ? 1 : 0;
+    for (let i = 0; i < word.length; i++) grid[row + i * dr][col + i * dc] = word[i];
+  }
+
+  const center = Math.floor(SIZE / 2);
+  const fc = center - Math.floor(clean[0].word.length / 2);
+  placeWord(clean[0].word, center, fc, 'across');
+  placed.push({ ...clean[0], row: center, col: fc, dir: 'across', num: 1 });
+
+  for (let wi = 1; wi < clean.length && placed.length < 22; wi++) {
+    const w = clean[wi];
+    let best = null, bestScore = -1;
+    for (const dir of ['across', 'down']) {
+      for (let t = 0; t < 600; t++) {
+        const p = placed[Math.floor(Math.random() * placed.length)];
+        if (p.dir === dir) continue;
+        const pi = Math.floor(Math.random() * w.word.length);
+        const pj = Math.floor(Math.random() * p.word.length);
+        if (w.word[pi] !== p.word[pj]) continue;
+        let row, col;
+        if (dir === 'across') { row = p.row + (p.dir === 'down' ? pj : 0); col = p.col + (p.dir === 'across' ? pj : 0) - pi; }
+        else { col = p.col + (p.dir === 'across' ? pj : 0); row = p.row + (p.dir === 'down' ? pj : 0) - pi; }
+        if (row < 0 || col < 0 || row >= SIZE || col >= SIZE) continue;
+        if (canPlace(w.word, row, col, dir)) { const s = Math.random(); if (s > bestScore) { bestScore = s; best = { row, col, dir }; } }
+      }
+    }
+    if (best) { placeWord(w.word, best.row, best.col, best.dir); placed.push({ ...w, ...best, num: 0 }); }
+  }
+
+  if (placed.length < 8) return null;
+
+  let minR = SIZE, maxR = 0, minC = SIZE, maxC = 0;
+  placed.forEach(p => {
+    minR = Math.min(minR, p.row); maxR = Math.max(maxR, p.row + (p.dir === 'down' ? p.word.length - 1 : 0));
+    minC = Math.min(minC, p.col); maxC = Math.max(maxC, p.col + (p.dir === 'across' ? p.word.length - 1 : 0));
+  });
+
+  const pad = 1, rows = maxR - minR + 1 + pad * 2, cols = maxC - minC + 1 + pad * 2;
+  const tg = Array.from({ length: rows }, () => Array(cols).fill(null));
+  placed.forEach(p => {
+    p.row -= minR - pad; p.col -= minC - pad;
+    for (let i = 0; i < p.word.length; i++) {
+      const r = p.row + (p.dir === 'down' ? i : 0), c = p.col + (p.dir === 'across' ? i : 0);
+      tg[r][c] = p.word[i];
+    }
+  });
+
+  let n = 1;
+  const numbered = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    if (!tg[r][c]) continue;
+    const sa = placed.some(p => p.dir === 'across' && p.row === r && p.col === c);
+    const sd = placed.some(p => p.dir === 'down' && p.row === r && p.col === c);
+    if (sa || sd) { numbered.push({ r, c, n }); placed.forEach(p => { if (p.row === r && p.col === c) p.num = n; }); n++; }
+  }
+
+  return { grid: tg, rows, cols, placed, numbered };
+}
+
+function renderCrossword(cw, title) {
+  document.getElementById('cw-title').textContent = title;
+  const gridEl = document.getElementById('cw-grid');
+  gridEl.style.gridTemplateColumns = `repeat(${cw.cols}, 30px)`;
+  gridEl.style.gridTemplateRows = `repeat(${cw.rows}, 30px)`;
+  gridEl.innerHTML = '';
+
+  for (let r = 0; r < cw.rows; r++) for (let c = 0; c < cw.cols; c++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell' + (cw.grid[r][c] === null ? ' black' : '');
+    cell.dataset.r = r; cell.dataset.c = c;
+    if (cw.grid[r][c] !== null) {
+      const num = cw.numbered.find(n => n.r === r && n.c === c);
+      if (num) { const s = document.createElement('span'); s.className = 'cell-num'; s.textContent = num.n; cell.appendChild(s); }
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.maxLength = 1;
+      inp.dataset.answer = cw.grid[r][c];
+      inp.addEventListener('keydown', navKey);
+      inp.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-ZÀÈÌÒÙ]/g, ''); });
+      cell.appendChild(inp);
+    }
+    gridEl.appendChild(cell);
+  }
+
+  const acrossEl = document.getElementById('clues-across');
+  const downEl = document.getElementById('clues-down');
+  acrossEl.innerHTML = ''; downEl.innerHTML = '';
+  [...cw.placed].sort((a, b) => a.num - b.num).forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'clue-item';
+    d.innerHTML = `<b>${p.num}.</b> ${p.clue}`;
+    d.onclick = () => { const inp = getCell(p.row, p.col); if (inp) inp.focus(); };
+    (p.dir === 'across' ? acrossEl : downEl).appendChild(d);
+  });
+
+  document.getElementById('crossword-section').classList.add('visible');
+  document.getElementById('score').style.display = 'none';
+  document.getElementById('crossword-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function getCell(r, c) { return document.querySelector(`#cw-grid .cell[data-r="${r}"][data-c="${c}"] input`); }
+
+function navKey(e) {
+  const cell = e.target.closest('.cell');
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  if (e.key === 'ArrowRight') { const n = getCell(r, c + 1); if (n) n.focus(); }
+  else if (e.key === 'ArrowLeft') { const n = getCell(r, c - 1); if (n) n.focus(); }
+  else if (e.key === 'ArrowDown') { const n = getCell(r + 1, c); if (n) n.focus(); }
+  else if (e.key === 'ArrowUp') { const n = getCell(r - 1, c); if (n) n.focus(); }
+  else if (e.key === 'Backspace' && !e.target.value) { const n = getCell(r, c - 1) || getCell(r - 1, c); if (n) { n.value = ''; n.focus(); } }
+}
+
+function verify() {
+  let correct = 0, total = 0;
+  document.querySelectorAll('#cw-grid input').forEach(inp => {
+    inp.classList.remove('correct', 'wrong');
+    total++;
+    if (inp.value) { if (inp.value === inp.dataset.answer) { inp.classList.add('correct'); correct++; } else inp.classList.add('wrong'); }
+  });
+  const sc = document.getElementById('score');
+  sc.style.display = 'inline-block';
+  sc.textContent = correct + '/' + total + ' corrette';
+}
+
+function showSolution() {
+  document.querySelectorAll('#cw-grid input').forEach(inp => { inp.value = inp.dataset.answer; inp.classList.remove('wrong'); inp.classList.add('correct'); });
+  document.getElementById('score').style.display = 'none';
+}
+
+function resetGrid() {
+  document.querySelectorAll('#cw-grid input').forEach(inp => { inp.value = ''; inp.classList.remove('correct', 'wrong'); });
+  document.getElementById('score').style.display = 'none';
+}
+
+function exportStudent() {
+  if (!currentCW) return;
+  const { cw, title } = currentCW;
+
+  let gridHTML = `<div id="grid" style="display:inline-grid;gap:2px;border:2px solid #222;padding:2px;background:#222;border-radius:4px;grid-template-columns:repeat(${cw.cols},30px);grid-template-rows:repeat(${cw.rows},30px);">`;
+  for (let r = 0; r < cw.rows; r++) for (let c = 0; c < cw.cols; c++) {
+    if (!cw.grid[r][c]) { gridHTML += `<div style="background:#1a1a1a;border-radius:2px;"></div>`; continue; }
+    const num = cw.numbered.find(n => n.r === r && n.c === c);
+    gridHTML += `<div style="position:relative;background:#fff;border-radius:2px;">`;
+    if (num) gridHTML += `<span style="position:absolute;top:1px;left:2px;font-size:7px;color:#777;line-height:1;pointer-events:none;">${num.n}</span>`;
+    gridHTML += `<input type="text" maxlength="1" data-a="${cw.grid[r][c]}" data-r="${r}" data-c="${c}" style="width:100%;height:100%;border:none;background:transparent;text-align:center;font-size:14px;font-weight:600;text-transform:uppercase;font-family:system-ui,sans-serif;cursor:pointer;outline:none;color:#111;" oninput="this.value=this.value.toUpperCase().replace(/[^A-ZÀÈÌÒÙ]/g,'')" /></div>`;
+  }
+  gridHTML += `</div>`;
+
+  let acH = '', dwH = '';
+  [...cw.placed].sort((a, b) => a.num - b.num).forEach(p => {
+    const it = `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f0f0f0;color:#444;line-height:1.4;"><b style="color:#111;">${p.num}.</b> ${p.clue}</div>`;
+    if (p.dir === 'across') acH += it; else dwH += it;
+  });
+
+  const html = `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cruciverba — ${title}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,sans-serif;background:#f0f2f5;min-height:100vh;padding:20px;}
+.wrap{max-width:960px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e0e0e0;}
+h1{font-size:20px;font-weight:600;margin-bottom:4px;}
+.sub{font-size:13px;color:#888;margin-bottom:20px;}
+.layout{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:start;}
+@media(max-width:620px){.layout{grid-template-columns:1fr;}}
+.clues{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#444;margin-bottom:8px;}
+.btns{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;}
+button{padding:9px 16px;font-size:13px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-family:inherit;}
+button:hover{background:#f5f5f5;}
+button.dark{background:#111;color:#fff;border-color:#111;}
+button.dark:hover{background:#333;}
+#score{font-size:13px;color:#555;padding:8px 12px;background:#f5f5f5;border-radius:7px;margin-top:12px;}
+input:focus{background:#d6eaff!important;}
+.ok{background:#c8f0d0!important;color:#1a6b2a!important;}
+.ko{background:#ffd0d0!important;color:#a00!important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🔤 ${title}</h1>
+<p class="sub">Completa il cruciverba. Usa le frecce della tastiera per navigare tra le celle.</p>
+<div class="layout">
+<div style="overflow:auto;">${gridHTML}</div>
+<div>
+<div class="clues">
+<div><h3>→ Orizzontali</h3>${acH}</div>
+<div><h3>↓ Verticali</h3>${dwH}</div>
+</div>
+<div class="btns">
+<button class="dark" onclick="verify()">✓ Verifica</button>
+<button onclick="sol()">👁 Soluzione</button>
+<button onclick="rst()">↺ Reset</button>
+</div>
+<div id="score" style="display:none;"></div>
+</div>
+</div>
+</div>
+<script>
+const cols=${cw.cols};
+document.querySelectorAll('#grid input').forEach(inp=>{
+inp.addEventListener('keydown',e=>{
+const r=+inp.dataset.r,c=+inp.dataset.c;
+const g=(rr,cc)=>document.querySelector('#grid input[data-r="'+rr+'"][data-c="'+cc+'"]');
+if(e.key==='ArrowRight'){const n=g(r,c+1);if(n)n.focus();}
+else if(e.key==='ArrowLeft'){const n=g(r,c-1);if(n)n.focus();}
+else if(e.key==='ArrowDown'){const n=g(r+1,c);if(n)n.focus();}
+else if(e.key==='ArrowUp'){const n=g(r-1,c);if(n)n.focus();}
+else if(e.key==='Backspace'&&!inp.value){const n=g(r,c-1)||g(r-1,c);if(n){n.value='';n.focus();}}
+});});
+function verify(){let ok=0,tot=0;document.querySelectorAll('#grid input').forEach(i=>{i.classList.remove('ok','ko');tot++;if(i.value){if(i.value===i.dataset.a){i.classList.add('ok');ok++;}else i.classList.add('ko');}});const s=document.getElementById('score');s.style.display='block';s.textContent=ok+'/'+tot+' corrette';}
+function sol(){document.querySelectorAll('#grid input').forEach(i=>{i.value=i.dataset.a;i.classList.remove('ko');i.classList.add('ok');});}
+function rst(){document.querySelectorAll('#grid input').forEach(i=>{i.value='';i.classList.remove('ok','ko');});document.getElementById('score').style.display='none';}
+<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_cruciverba.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
