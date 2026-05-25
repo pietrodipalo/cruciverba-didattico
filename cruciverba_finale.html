@@ -443,7 +443,7 @@ function renderCrossword(cw, title) {
       inp.type = 'text'; inp.maxLength = 1;
       inp.dataset.answer = cw.grid[r][c];
       inp.addEventListener('keydown', navKey);
-      inp.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-ZÀÈÌÒÙ]/g, ''); });
+      inp.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-ZÀÈÌÒÙ]/g, ''); checkWordCompletion(e.target, cw); });
       cell.appendChild(inp);
     }
     gridEl.appendChild(cell);
@@ -463,6 +463,27 @@ function renderCrossword(cw, title) {
   document.getElementById('crossword-section').classList.add('visible');
   document.getElementById('score').style.display = 'none';
   document.getElementById('crossword-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function checkWordCompletion(inp, cw) {
+  const cell = inp.closest('.cell');
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  cw.placed.forEach(p => {
+    const dr = p.dir === 'down' ? 1 : 0, dc = p.dir === 'across' ? 1 : 0;
+    const inWord = Array.from({length: p.word.length}, (_, i) => ({
+      r: p.row + i * dr, c: p.col + i * dc
+    })).some(pos => pos.r === r && pos.c === c);
+    if (!inWord) return;
+    const cells = Array.from({length: p.word.length}, (_, i) => getCell(p.row + i * dr, p.col + i * dc));
+    const allFilled = cells.every(ci => ci && ci.value);
+    if (!allFilled) { cells.forEach(ci => { if (ci) { ci.classList.remove('correct', 'wrong'); ci.disabled = false; } }); return; }
+    const correct = cells.every((ci, i) => ci && ci.value === p.word[i]);
+    if (correct) {
+      cells.forEach(ci => { if (ci) { ci.classList.add('correct'); ci.classList.remove('wrong'); ci.disabled = true; } });
+    } else {
+      cells.forEach(ci => { if (ci) { ci.classList.add('wrong'); ci.classList.remove('correct'); ci.disabled = false; } });
+    }
+  });
 }
 
 function getCell(r, c) { return document.querySelector(`#cw-grid .cell[data-r="${r}"][data-c="${c}"] input`); }
